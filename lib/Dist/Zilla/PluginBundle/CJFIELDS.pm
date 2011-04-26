@@ -8,7 +8,7 @@ use namespace::autoclean;
 # for now this just extends FLORA's PluginBundle, but I'll likely strip this
 # down for my own purposes
 
-extends qw(Dist::Zilla::Plugin::FLORA);
+extends qw(Dist::Zilla::PluginBundle::FLORA);
 
 has '+authority'    => (default => 'cpan:CJFIELDS');
 
