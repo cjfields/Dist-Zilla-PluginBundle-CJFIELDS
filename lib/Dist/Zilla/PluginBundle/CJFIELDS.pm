@@ -4,56 +4,24 @@ package Dist::Zilla::PluginBundle::CJFIELDS;
 
 use Moose 1.0;
 use Moose::Util::TypeConstraints;
-use MooseX::Types::Moose qw(Bool Str ArrayRef Any);
+use MooseX::Types::Moose qw(Bool Str HashRef Any);
 use namespace::autoclean;
 
-=head1 SYNOPSIS
-
-In dist.ini:
-
-  [@CJFIELDS]
-  dist = Distribution-Name
-  repository_at = github
-
-=head1 DESCRIPTION
-
-This is the L<Dist::Zilla> configuration I use to build my distributions.
-It is an extension of L<Dist::Zilla::PluginBundle::FLORA>, but with a few
-configurable filters for my use.
-
-With default settings, it is roughly equivalent to:
-
-  @Basic
-
-  [MetaConfig]
-  [MetaJSON]
-  [PkgVersion]
-  [PodSyntaxTests]
-  [PodCoverageTests]
-  [NoTabsTests]
-  [EOLTests]
-  [NextRelease]
-
-  [MetaResources]
-  repository.type   = git
-  repository.url    = git://github.com/cjfields/${lowercase_dist}
-  repository.web    = http://github.com/cjfields/${lowercase_dist}
-  bugtracker.web    = http://rt.cpan.org/Public/Dist/Display.html?Name=${dist}
-  bugtracker.mailto = bug-${dist}@rt.cpan.org
-  homepage          = http://search.cpan.org/dist/${dist}
-
-  [Authority]
-  authority   = cpan:CJFIELDS
-  do_metadata = 1
-
-  [PodWeaver]
-  config_plugin = @FLORA ; using Florian's plugin here
-
-  [AutoPrereqs]
-
-=cut
-
 extends qw(Dist::Zilla::PluginBundle::FLORA);
+
+sub BUILD {
+    my $self = shift;
+    $self->_set_config_plugin( map { $_ => {} } qw(
+        MetaConfig
+        MetaJSON
+        PkgVersion
+        PodSyntaxTests
+        NoTabsTests
+        CompileTests
+        NextRelease
+        )
+    );
+}
 
 has '+authority'    => ( default     => 'cpan:CJFIELDS');
 
@@ -66,7 +34,7 @@ has 'create_readme' => (
     trigger     => sub {
         my ($self, $val) = @_;
         if (!$val) {
-            
+            $self->_set_filter_plugin('Readme');
         }
         $val
     }
@@ -75,7 +43,20 @@ has 'create_readme' => (
 has 'use_module_build'  => (
     isa         => Bool,
     is          => 'ro',
-    default     => 1,
+    default     => sub {
+        my $self = shift;
+        $self->_set_filter_plugin('MakeMaker', 1);
+        $self->_set_config_plugin('ModuleBuild',{});
+        1;
+    },
+    trigger     => sub {
+        my ($self, $val) = @_;
+        if ($val) {
+            $self->_set_filter_plugin('MakeMaker',1);
+            $self->_set_config_plugin('ModuleBuild',{});
+        }
+        $val
+    }
 );
 
 has 'install_scripts'  => (
@@ -93,34 +74,37 @@ has 'scripts_dir'   =>(
 has 'skip_build'  => (
     isa         => Bool,
     is          => 'ro',
-    default     => 0
-);
-
-has 'use_next_release'  => (
-    isa         => Bool,
-    is          => 'ro',
-    default     => 1
-);
-
-has '_plugins_tbr'          => (
-    traits      => ['Array'],
-    isa         => ArrayRef[Str],
-    is          => 'bare',
-    init_arg    => undef,
-    handles     => {
-        'filter_plugin'     => 'push',
-        'filtered_plugins'  => 'elements'
+    default     => 0,
+    lazy        => 1,
+    trigger     => sub {
+        my ($self, $val) = @_;
+        if ($val) {
+            Carp::croak() if $self->use_module_build;
+            $self->_set_filter_plugin('MakeMaker',1);
+        }
+        $val
     }
 );
 
-has '_plugins_tba'               => (
-    traits      => ['Array'],
-    isa         => ArrayRef[Any],
+has '_plugins_filtered' => (
+    traits      => ['Hash'],
+    isa         => HashRef[Bool],
     is          => 'bare',
     init_arg    => undef,
     handles     => {
-        'add_config_plugin'     => 'push',
-        'config_plugins'  => 'elements'
+        '_set_filter_plugin' => 'set',
+        '_filtered_plugins'  => 'keys'
+    }
+);
+
+has '_plugins_added' => (
+    traits      => ['Hash'],
+    isa         => HashRef[Any],
+    is          => 'bare',
+    init_arg    => undef,
+    handles     => {
+        '_set_config_plugin'     => 'set',
+        '_config_plugin_map'     => 'kv'
     }
 );
 
@@ -131,10 +115,7 @@ override 'configure' => sub {
         if $self->skip_build && $self->use_module_build;
 
     # these need to be moved into a trigger or builder or somethin'
-    my @filtered;
-    push @filtered, 'Readme' if !$self->create_readme;
-    push @filtered, 'MakeMaker' if $self->use_module_build;
-    push @filtered, 'MakeMaker', 'ModuleBuild' if $self->skip_build;
+    my @filtered = $self->_filtered_plugins;
 
     if (@filtered) {
         $self->add_bundle('@Filter' => {-bundle   => '@Basic',
@@ -143,16 +124,9 @@ override 'configure' => sub {
         $self->add_bundle('@Basic');
     }
 
-    $self->add_plugins(qw(
-                       MetaConfig
-                       MetaJSON
-                       PkgVersion
-                       PodSyntaxTests
-                       NoTabsTests
-                       CompileTests
-                       ))
-                       ;
+    $self->add_plugins($self->_config_plugin_map);
 
+    # these have to be set last-minute b/c they rely on secondary attributes
     $self->add_plugins(
         [MetaResources => {
             'repository.type'   => $self->repository_type,
@@ -183,12 +157,6 @@ override 'configure' => sub {
                   config_plugin => $self->weaver_config_plugin,
               }],
           );
-
-    # Same as above, these need to be moved into a trigger or builder or somethin'
-    $self->add_plugins('NextRelease') if $self->use_next_release;
-    $self->add_plugins('ModuleBuild') if $self->use_module_build;
-    $self->add_plugins('PodCoverageTests') if !$self->disable_pod_coverage_tests;
-    $self->add_plugins('AutoPrereqs') if $self->auto_prereqs;
 };
 
 __PACKAGE__->meta->make_immutable;
