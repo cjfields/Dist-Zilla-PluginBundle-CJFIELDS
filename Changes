@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+0.0301    2011-04-29 15:24:54 America/Chicago
+
+* Bug-fix release for skipping README creation
+
 0.03      2011-04-29 15:00:15 America/Chicago
 
 0.02      2011-04-27 22:38:19 America/Chicago
