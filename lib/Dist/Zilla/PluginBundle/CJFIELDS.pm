@@ -34,7 +34,7 @@ has 'create_readme' => (
     trigger     => sub {
         my ($self, $val) = @_;
         if (!$val) {
-            $self->_set_filter_plugin('Readme');
+            $self->_set_filter_plugin('Readme',1);
         }
         $val
     }
