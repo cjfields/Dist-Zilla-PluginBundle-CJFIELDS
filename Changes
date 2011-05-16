@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+* get skip_build option working, uses Dist::Zilla::Plugin::ModuleBuild::Custom
+
 0.0301    2011-04-29 15:24:54 America/Chicago
 
 * Bug-fix release for skipping README creation
