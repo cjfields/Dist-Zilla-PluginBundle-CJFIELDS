@@ -1,4 +1,5 @@
 {{$NEXT}}
+  - use OurPkgVersion instead (try to retain line numbering)
 
 0.05      2012-01-06 11:24:37 CST6CDT
   - update for Test::Compile, CompileTests is deprecated in recent Dist::Zilla

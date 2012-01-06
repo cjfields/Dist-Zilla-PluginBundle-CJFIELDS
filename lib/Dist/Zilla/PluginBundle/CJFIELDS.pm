@@ -1,5 +1,7 @@
 package Dist::Zilla::PluginBundle::CJFIELDS;
 
+# VERSION
+
 # ABSTRACT: Build your modules like CJFIELDS (not sure that's a recommendation)
 
 use Moose 1.0;
@@ -29,12 +31,12 @@ sub BUILD {
     $self->_set_config_plugin( map { $_ => {} } qw(
         MetaConfig
         MetaJSON
-        PkgVersion
+        OurPkgVersion
         PodSyntaxTests
         NoTabsTests
         Test::Compile
         NextRelease
-        )
+)
     );
 }
 
