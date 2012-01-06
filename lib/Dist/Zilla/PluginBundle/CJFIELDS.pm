@@ -32,7 +32,7 @@ sub BUILD {
         PkgVersion
         PodSyntaxTests
         NoTabsTests
-        CompileTests
+        Test::Compile
         NextRelease
         )
     );
